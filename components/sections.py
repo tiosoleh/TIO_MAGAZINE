@@ -31,7 +31,13 @@ def photo(slot: str, t: dict, ratio: str = "4/5") -> str:
     """HTML for one photo slot: the uploaded photo, or an elegant placeholder."""
     uri = ih.data_uri(slot)
     if uri:
-        inner = f'<img src="{uri}" alt="photo">'
+        pos = ih.get_position(slot)
+        style = (
+            f'object-position:{pos["x"]:.1f}% {pos["y"]:.1f}%;'
+            f'transform:scale({pos["zoom"]:.2f});'
+            f'transform-origin:{pos["x"]:.1f}% {pos["y"]:.1f}%;'
+        )
+        inner = f'<img src="{uri}" alt="photo" style="{style}">'
     else:
         inner = f'<div class="ph-empty"><b>+</b>{esc(t["ui"]["photo_empty"])}</div>'
     return f'<div class="ph reveal" style="aspect-ratio:{ratio}">{inner}</div>'

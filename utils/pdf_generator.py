@@ -116,32 +116,46 @@ def fit_line(c, text, x, y, max_w, *, font="serif_b", size=30, color=INK, align=
         c.drawString(x, y, text)
 
 
-def _cropped(data: bytes, w: float, h: float, focus: float = 0.4) -> ImageReader:
+def _cropped(data: bytes, w: float, h: float, focus: float = 0.4,
+             position: dict | None = None) -> ImageReader:
+    """Crop to frame using the same x/y/zoom controls as the web preview."""
     img = Image.open(io.BytesIO(data)).convert("RGB")
     iw, ih = img.size
     target = w / h
+    pos = position or {}
+    fx = max(0.0, min(100.0, float(pos.get("x", 50)))) / 100.0
+    fy = max(0.0, min(100.0, float(pos.get("y", focus * 100)))) / 100.0
+    zoom = max(1.0, min(3.0, float(pos.get("zoom", 1.0))))
     if iw / ih > target:
-        nw = int(ih * target)
-        left = (iw - nw) // 2
-        box = (left, 0, left + nw, ih)
+        base_w = ih * target
+        crop_w = max(1, int(base_w / zoom))
+        crop_h = ih
+        left = int((iw - crop_w) * fx)
+        top = 0
     else:
-        nh = int(iw / target)
-        top = int((ih - nh) * focus)
-        box = (0, top, iw, top + nh)
-    img = img.crop(box)
-    px = (int(w * 2.2), int(h * 2.2))
-    if img.size[0] > px[0]:
-        img = img.resize(px, Image.LANCZOS)
+        base_h = iw / target
+        crop_h = max(1, int(base_h / zoom))
+        crop_w = iw
+        left = 0
+        top = int((ih - crop_h) * fy)
+    left = max(0, min(iw - crop_w, left))
+    top = max(0, min(ih - crop_h, top))
+    img = img.crop((left, top, left + crop_w, top + crop_h))
+    px = (max(1, int(w * 2.2)), max(1, int(h * 2.2)))
+    img = img.resize(px, Image.LANCZOS)
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=88)
     buf.seek(0)
     return ImageReader(buf)
 
 
-def photo(c, data, x, y, w, h, label="Your photo here"):
+PHOTO_POSITIONS = {}
+
+
+def photo(c, data, x, y, w, h, label="Your photo here", slot=None):
     """Draw a photo (y = bottom edge), cropped to fill. Placeholder when missing."""
     if data:
-        c.drawImage(_cropped(data, w, h), x, y, w, h)
+        c.drawImage(_cropped(data, w, h, position=PHOTO_POSITIONS.get(slot)), x, y, w, h)
     else:
         c.setFillColor(HexColor("#E6E8EC"))
         c.rect(x, y, w, h, stroke=0, fill=1)
@@ -192,7 +206,7 @@ def page_cover(c, ph):
     d = C["cover"]
     data = ph.get("cover_1")
     if data:
-        c.drawImage(_cropped(data, W, H, 0.35), 0, 0, W, H)
+        c.drawImage(_cropped(data, W, H, 0.35, PHOTO_POSITIONS.get("cover_1")), 0, 0, W, H)
     else:
         c.setFillColor(HexColor("#17202C"))
         c.rect(0, 0, W, H, stroke=0, fill=1)
@@ -239,7 +253,7 @@ def page_about(c, ph):
     d = C["about"]
     y = title_block(c, 2, d["title"])
     pw, phh = 215, 300
-    photo(c, ph.get("about_1"), M, y - phh, pw, phh)
+    photo(c, ph.get("about_1"), M, y - phh, pw, phh, slot="about_1")
     tx = M + pw + 28
     para(c, d["text"], tx, y - 4, W - M - tx, font="serif", size=13, lead=1.62, max_h=phh - 6)
     fy = y - phh - 34
@@ -273,7 +287,7 @@ def page_routine(c, ph):
         px = W - M - pw if right else M
         tx = M if right else M + pw + 26
         tw = CW - pw - 26
-        photo(c, ph.get(f"routine_{i + 1}"), px, top - rh, pw, rh)
+        photo(c, ph.get(f"routine_{i + 1}"), px, top - rh, pw, rh, slot=f"routine_{i + 1}")
         c.setFillColor(HexColor("#B9C2CF"))
         c.setFont(F["serif_b"], 38)
         c.drawString(tx, top - 40, f"0{i + 1}")
@@ -295,8 +309,8 @@ def page_hobbies(c, ph):
     cat_h, gap = 78, 8
     photo_h = y - BOTTOM - cat_h - 44
     pw = (CW - 14) / 2
-    photo(c, ph.get("hobbies_1"), M, y - photo_h, pw, photo_h)
-    photo(c, ph.get("hobbies_2"), M + pw + 14, y - photo_h, pw, photo_h)
+    photo(c, ph.get("hobbies_1"), M, y - photo_h, pw, photo_h, slot="hobbies_1")
+    photo(c, ph.get("hobbies_2"), M + pw + 14, y - photo_h, pw, photo_h, slot="hobbies_2")
     cy = y - photo_h - 24
     spaced(c, "INTERESTS", M, cy, size=8, space=2.4)
     bw = (CW - 4 * gap) / 5
@@ -317,7 +331,7 @@ def page_today(c, ph):
     y = title_block(c, 5, d["title"], d["grammar"])
     items = d["items"]
     big_h = 212
-    photo(c, ph.get("today_1"), M, y - big_h, CW, big_h)
+    photo(c, ph.get("today_1"), M, y - big_h, CW, big_h, slot="today_1")
     ty = y - big_h - 16
     c.setFillColor(HexColor("#B9C2CF"))
     c.setFont(F["serif_b"], 30)
@@ -329,7 +343,7 @@ def page_today(c, ph):
     ph_h = y2 - BOTTOM - 112
     for k in (1, 2):
         x = M + (k - 1) * (pw + 14)
-        photo(c, ph.get(f"today_{k + 1}"), x, y2 - ph_h, pw, ph_h)
+        photo(c, ph.get(f"today_{k + 1}"), x, y2 - ph_h, pw, ph_h, slot=f"today_{k + 1}")
         yy = y2 - ph_h - 18
         c.setFillColor(HexColor("#B9C2CF"))
         c.setFont(F["serif_b"], 22)
@@ -348,7 +362,7 @@ def page_place(c, ph):
         h = para(c, item["title"], x, y - 20, pw, font="serif_b", size=20, lead=1.2, max_h=30)
         text_h = 150
         photo_h = y - 20 - h - 14 - BOTTOM - text_h - 20
-        photo(c, ph.get(f"place_{i + 1}"), x, y - 20 - h - 14 - photo_h, pw, photo_h)
+        photo(c, ph.get(f"place_{i + 1}"), x, y - 20 - h - 14 - photo_h, pw, photo_h, slot=f"place_{i + 1}")
         para(c, item["text"], x, y - 20 - h - 14 - photo_h - 16, pw, font="sans", size=11, lead=1.62,
              color=INK, max_h=text_h)
 
@@ -368,7 +382,7 @@ def page_story(c, ph):
         for j in range(n):
             idx = a + j
             x = M + j * (w + gap)
-            photo(c, ph.get(f"story_{idx + 1}"), x, top - ph_h, w, ph_h)
+            photo(c, ph.get(f"story_{idx + 1}"), x, top - ph_h, w, ph_h, slot=f"story_{idx + 1}")
             spaced(c, f"{idx + 1}.  {steps[idx]['link'].upper()}", x, top - ph_h - 16, size=7.5, space=1.8)
             para(c, steps[idx]["title"], x, top - ph_h - 22, w, font="serif_b", size=12.5, lead=1.2, max_h=30)
     py = y - 2 * (ph_h + label_h + 12) + 4
@@ -453,7 +467,7 @@ def page_reflection(c, ph):
     banner = ph.get("cover_1") or ph.get("about_1")
     bh = 215
     if banner:
-        photo(c, banner, M, y - bh, CW, bh)
+        photo(c, banner, M, y - bh, CW, bh, slot="cover_1" if ph.get("cover_1") else "about_1")
     else:
         c.setFillColor(NAVY)
         c.rect(M, y - bh, CW, bh, stroke=0, fill=1)
@@ -483,9 +497,11 @@ def default_reading() -> dict:
             "event1": r["events"][0], "event2": r["events"][1], "evaluation": r["evaluation"]}
 
 
-def build_pdf(photos: dict[str, bytes] | None = None, reading: dict | None = None) -> bytes:
+def build_pdf(photos: dict[str, bytes] | None = None, reading: dict | None = None, positions: dict | None = None) -> bytes:
     """Build the 9-page A4 magazine and return the PDF bytes."""
+    global PHOTO_POSITIONS
     photos = photos or {}
+    PHOTO_POSITIONS = positions or {}
     rd = {**default_reading(), **(reading or {})}
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)

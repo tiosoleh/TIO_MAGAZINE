@@ -59,8 +59,9 @@ FX_JS = """
 
 
 @st.cache_data(show_spinner=False)
-def _make_pdf(photo_items: tuple, reading_items: tuple) -> bytes:
-    return build_pdf(dict(photo_items), dict(reading_items))
+def _make_pdf(photo_items: tuple, reading_items: tuple, position_items: tuple) -> bytes:
+    positions = {slot: dict(values) for slot, values in position_items}
+    return build_pdf(dict(photo_items), dict(reading_items), positions)
 
 
 def main() -> None:
@@ -90,7 +91,11 @@ def main() -> None:
     with st.container(key="dl"):
         try:
             reading = {field: st.session_state[key] for key, field in READING_KEYS.items()}
-            pdf = _make_pdf(tuple(sorted(ih.all_photos().items())), tuple(sorted(reading.items())))
+            pdf = _make_pdf(
+                tuple(sorted(ih.all_photos().items())),
+                tuple(sorted(reading.items())),
+                tuple(sorted((k, tuple(sorted(v.items()))) for k, v in ih.all_positions().items())),
+            )
             st.download_button(t["ui"]["dl_button"], data=pdf, file_name="TIO_Magazine_My_Life_My_Story.pdf",
                                mime="application/pdf", key="dl_btn")
         except PDFLayoutError as exc:

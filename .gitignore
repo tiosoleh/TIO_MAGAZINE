@@ -1,7 +1,15 @@
-venv/
+# Python
 __pycache__/
-*.pyc
-.DS_Store
+*.py[cod]
+.venv/
+venv/
+
+# Streamlit secrets (NEVER commit real credentials)
 .streamlit/secrets.toml
-assets/music/*.mp3
-assets/music/*.wav
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

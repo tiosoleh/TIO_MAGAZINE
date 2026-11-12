@@ -86,7 +86,7 @@ header[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecor
 /* ---------- photos ---------- */
 .ph{position:relative; overflow:hidden; background:#e9ebee; width:100%;}
 .ph img{width:100%; height:100%; object-fit:cover; display:block; transition:transform 1s cubic-bezier(.2,.7,.2,1), clip-path 1.1s cubic-bezier(.2,.7,.2,1);}
-.ph:hover img{transform:scale(1.06);}
+.ph:hover img{filter:brightness(.98);}
 .ph.rv-pending img{clip-path:inset(0 0 100% 0);}
 .ph.rv-in img{clip-path:inset(0 0 0 0);}
 .ph-empty{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:.4rem;
@@ -136,3 +136,8 @@ header[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecor
 
 .st-key-fx{height:0; overflow:hidden; margin:0; padding:0;}
 .st-key-fx iframe{height:0; border:0;}
+
+/* ---------- photo position editor ---------- */
+[class*="st-key-mgr_"] [data-testid="stSlider"]{margin:.25rem 0 .7rem;}
+[class*="st-key-mgr_"] [data-testid="stSlider"] label{font-size:.82rem;font-weight:500;color:var(--ink);}
+[class*="st-key-mgr_"] [data-testid="stButton"] button{border-radius:2px;min-height:2.25rem;}
